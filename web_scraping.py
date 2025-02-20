@@ -68,16 +68,19 @@ def amazon_scraping(search_query):
     return amazon_list
 
 
-def flipkart_scraping(search_query : str):
+def flipkart_scraping(search_query):
+
     service = Service(executable_path="chromedriver.exe")
     driver = webdriver.Chrome(service=service)
 
     driver.get("https://www.flipkart.in/")
 
-    flipkart_list = []
-
     text_field = driver.find_element(By.CSS_SELECTOR, "input[title = 'Search for Products, Brands and More']")
     text_field.send_keys(search_query + Keys.ENTER)
+
+    flipkart_list = []
+
+    is_clothing = False
 
     is_grid = True
     products = driver.find_elements(By.CLASS_NAME, "slAVV4")
@@ -85,6 +88,10 @@ def flipkart_scraping(search_query : str):
     if len(products) == 0:
         is_grid = False
         products = driver.find_elements(By.CLASS_NAME, "tUxRFH")
+
+    if(len(products) == 0):
+        is_clothing = True
+        products = driver.find_elements(By.CLASS_NAME, "LFEi7Z")
 
     i = 0
     products_shown = 0
@@ -98,7 +105,20 @@ def flipkart_scraping(search_query : str):
         except:
             pass
 
-        if is_grid:
+        try:
+            products[i].find_element(By.CLASS_NAME, "_2ABVdq")
+            i += 1
+            continue
+        except:
+            pass
+        
+        if is_clothing:
+            product_image = products[i].find_element(By.TAG_NAME, "img").get_attribute("src")
+            product_name = products[i].find_element(By.CLASS_NAME, "WKTcLC").text
+            product_price = products[i].find_element(By.CLASS_NAME, "Nx9bqj").text
+            product_link = products[i].find_element(By.CLASS_NAME, "WKTcLC").get_attribute("href")
+
+        elif is_grid:
             product_image = products[i].find_element(By.CSS_SELECTOR, "img.DByuf4").get_attribute("src")
             product_name = products[i].find_element(By.CSS_SELECTOR, "a.wjcEIp").get_attribute("title")
             product_price = products[i].find_element(By.CSS_SELECTOR, "div.Nx9bqj").text
@@ -108,6 +128,11 @@ def flipkart_scraping(search_query : str):
             product_name = products[i].find_element(By.CSS_SELECTOR, "div.KzDlHZ").text
             product_price = products[i].find_element(By.CSS_SELECTOR, "div.Nx9bqj").text
             product_link = products[i].find_element(By.CSS_SELECTOR, "a.CGtC98").get_attribute("href")
+
+        print("Product Image:", product_image)
+        print("Product Name:", product_name)
+        print("Product Price:", product_price)
+        print("Product Link:", product_link)
 
         product_info = {
             "image": product_image,
