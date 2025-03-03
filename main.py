@@ -2,6 +2,9 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from web_scraping import amazon_scraping, flipkart_scraping, deals_scraping
+from models.UserInputModel import UserInput
+from models.TrackedProductModel import TrackedProduct
+from firebase_methods import add_product, delete_product, is_product_tracked
 
 app = FastAPI()
 
@@ -9,15 +12,12 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Specify allowed origins
     allow_credentials=True,
-    allow_methods=["GET", "POST"],  # Only allow required methods
+    allow_methods=["GET", "POST", "DELETE"],  # Only allow required methods
     allow_headers=["*"],  # Allow all headers
 )
 
-class UserInput(BaseModel):
-    query : str
-
-@app.get("/fetchDeals")
-async def fetchDeals():
+@app.get("/fetch-deals")
+async def fetch_deals():
     try:
         deals = deals_scraping()
         json = {
@@ -29,8 +29,8 @@ async def fetchDeals():
 
 
 
-@app.post("/fetchData/")
-async def fetchData(user_input : UserInput):
+@app.post("/fetch-data/")
+async def fetch_data(user_input : UserInput):
     try:
         amazon_list = amazon_scraping(user_input.query)
         flipkart_list = flipkart_scraping(user_input.query)
@@ -42,3 +42,31 @@ async def fetchData(user_input : UserInput):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/add-product/")
+async def add_tracked_product(tracked_product : TrackedProduct):
+    try:
+        await add_product(tracked_product)
+        json = {"result": "Product added successfully"}
+        return json
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.delete("/delete-product/{docId}/")
+async def delete_tracked_product(docId : str):
+    try:
+        await delete_product(docId)
+        json = {"result": "Product deleted successfully"}
+        return json
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.get("/is-product-tracked/{docId}/")
+async def check_product_tracked(docId : str):
+    try:
+        result = await is_product_tracked(docId)
+        json = {"result": result}
+        return json
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+        
