@@ -1,9 +1,10 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-from web_scraping import amazon_scraping, flipkart_scraping, deals_scraping
+import web_scraping # import amazon_scraping, flipkart_scraping, deals_scraping, fetch_amazon_product
 from models.UserInputModel import UserInput
 from models.TrackedProductModel import TrackedProduct
+from models.LinkProductModel import LinkProduct
 from firebase_methods import add_product, delete_product, is_product_tracked
 
 app = FastAPI()
@@ -16,10 +17,10 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
-@app.get("/fetch-deals")
+@app.get("/fetch-deals/")
 async def fetch_deals():
     try:
-        deals = deals_scraping()
+        deals = web_scraping.deals_scraping()
         json = {
             "deals": deals
         }
@@ -32,8 +33,8 @@ async def fetch_deals():
 @app.post("/fetch-data/")
 async def fetch_data(user_input : UserInput):
     try:
-        amazon_list = amazon_scraping(user_input.query)
-        flipkart_list = flipkart_scraping(user_input.query)
+        amazon_list = web_scraping.amazon_scraping(user_input.query)
+        flipkart_list = web_scraping.flipkart_scraping(user_input.query)
         json = {
             "amazon": amazon_list,
             "flipkart": flipkart_list
@@ -70,3 +71,27 @@ async def check_product_tracked(docId : str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
         
+@app.post("/add-product-by-link/")
+async def add_product_by_link(link_product : LinkProduct):
+    json = {}
+    try:
+        if link_product.productUrl.startswith("https://www.amazon.in"):
+            result = await web_scraping.fetch_amazon_product(link_product.productUrl, link_product.currentUser)
+            if result == "Exists":
+                json = {"result": "Product already exists"}
+                return json
+            elif result == "Added":
+                json = {"result": "Product added successfully"}
+                return json
+        elif link_product.productUrl.startswith("https://www.flipkart.com"):
+            result = await web_scraping.fetch_flipkart_product(link_product.productUrl, link_product.currentUser)
+            if result == "Exists":
+                json = {"result": "Product already exists"}
+                return json
+            elif result == "Added":
+                json = {"result": "Product added successfully"}
+                return json
+        else:
+            json = {"result": "Provide supported link"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

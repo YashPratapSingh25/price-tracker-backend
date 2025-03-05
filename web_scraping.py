@@ -3,7 +3,10 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from amazoncaptcha import AmazonCaptcha
+from models.TrackedProductModel import TrackedProduct
+from firebase_methods import add_product, is_product_tracked
 import time
+import datetime
 
 service = Service(executable_path="chromedriver.exe")
 driver = webdriver.Chrome(service=service)
@@ -146,14 +149,9 @@ def flipkart_scraping(search_query):
     while products_shown < 5:
 
         try:
-            products[i].find_element(By.CSS_SELECTOR, "div.f8qK5m")
-            i += 1
-            continue
-        except:
-            pass
-
-        try:
-            products[i].find_element(By.CLASS_NAME, "_2ABVdq")
+            if is_clothing : products[i].find_element(By.CSS_SELECTOR, "div._2ABVdq")
+            elif is_grid : products[i].find_element(By.CSS_SELECTOR, "div.xgS27m")
+            else : products[i].find_element(By.CSS_SELECTOR, "div.f8qK5m")
             i += 1
             continue
         except:
@@ -190,3 +188,85 @@ def flipkart_scraping(search_query):
         products_shown += 1
 
     return flipkart_list
+
+async def fetch_amazon_product(productUrl : str, currentUser : str) -> str:
+    
+    driver.get(productUrl)
+
+    try:
+        captcha_link = driver.find_element(By.TAG_NAME, "img").get_attribute("src")
+        amazon_captcha_solver(captcha_link, driver)
+    except:
+        pass
+
+    title = driver.find_element(By.ID, "productTitle").text
+    prices = driver.find_elements(By.CSS_SELECTOR, "span.a-price-whole")
+    imageUrl = driver.find_element(By.CSS_SELECTOR, "div#imgTagWrapperId img").get_attribute("src")
+
+    current_price = ""
+    for price in prices:
+        if price.text != "":
+            current_price = price.text
+            break;
+    
+    docId = f"{title} Amazon".replace(" ", "_").replace("/", "`")
+
+    if await is_product_tracked(docId):
+        return "Exists"
+
+    product = TrackedProduct(
+        docId = docId,
+        imageUrl = imageUrl,
+        title = title,
+        currentPrice = current_price,
+        prevPrice = current_price,
+        dateAdded = datetime.datetime.now().isoformat(),
+        productUrl = productUrl,
+        currentUser = currentUser,
+        site = "Amazon",
+    )
+
+    await add_product(product=product)
+    return "Added"
+
+async def fetch_flipkart_product(productUrl : str, currentUser : str) -> str:
+
+    driver.get(productUrl)
+
+    title = ""
+    
+    try:
+        title = driver.find_element(By.CSS_SELECTOR, "span.VU-ZEz").text
+    except:
+        time.sleep(5)
+        button = driver.find_element(By.CSS_SELECTOR, "button.btn")
+        button.click()
+        driver.refresh()
+        title = driver.find_element(By.CSS_SELECTOR, "span.VU-ZEz").text
+
+    index = title.find("  ")
+    if(index != -1) : title = title[:index].strip()
+
+    current_price = driver.find_element(By.CSS_SELECTOR, "div.Nx9bqj.CxhGGd").text.removeprefix("₹")
+    imageUrl = driver.find_element(By.CSS_SELECTOR, "img.DByuf4").get_attribute("src")
+
+    docId = f"{title} Flipkart".replace(" ", "_").replace("/", "`")
+
+    if await is_product_tracked(docId):
+        return "Exists"
+
+    product = TrackedProduct(
+        docId = docId,
+        imageUrl = imageUrl,
+        title = title,
+        currentPrice = current_price,
+        prevPrice = current_price,
+        dateAdded = datetime.datetime.now().isoformat(),
+        productUrl = productUrl,
+        currentUser = currentUser,
+        site = "Flipkart",
+    )
+
+    await add_product(product=product)
+    return "Added"
+
