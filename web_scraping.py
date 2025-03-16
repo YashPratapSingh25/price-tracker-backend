@@ -1,4 +1,5 @@
 from selenium import webdriver
+from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -8,7 +9,7 @@ import tracked_products_methods
 import time
 import datetime
 
-service = Service(executable_path="chromedriver.exe")
+service = Service(ChromeDriverManager().install())
 driver = webdriver.Chrome(service=service)
 
 def amazon_captcha_solver(src : str, driver):
@@ -306,7 +307,6 @@ async def fetch_latest_price_from_app(userId : str):
     for doc in docs:
         product = doc.to_dict()
         url : str = product["productUrl"]
-        current_price = ""
         driver.get(url)
 
         current_price = await fetch_latest_price(url)

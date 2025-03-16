@@ -1,8 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-import web_scraping # import amazon_scraping, flipkart_scraping, deals_scraping, fetch_amazon_product
-from models.UserInputModel import UserInput
+import web_scraping
 from models.TrackedProductModel import TrackedProduct
 from models.UserIdModel import UserId
 from models.LinkProductModel import LinkProduct
@@ -14,11 +13,11 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Specify allowed origins
     allow_credentials=True,
-    allow_methods=["GET", "POST", "DELETE"],  # Only allow required methods
+    allow_methods=["GET", "POST", "DELETE", "PATCH"],  # Only allow required methods
     allow_headers=["*"],  # Allow all headers
 )
 
-@app.get("/fetch-deals/")
+@app.get("/fetch-deals/") # fetches current deals
 async def fetch_deals():
     try:
         deals = web_scraping.deals_scraping()
@@ -31,11 +30,11 @@ async def fetch_deals():
 
 
 
-@app.post("/fetch-data/")
-async def fetch_data(user_input : UserInput):
+@app.get("/fetch-data/{query}") # fetches products after scraping
+async def fetch_data(query : str):
     try:
-        amazon_list = web_scraping.amazon_scraping(user_input.query)
-        flipkart_list = web_scraping.flipkart_scraping(user_input.query)
+        amazon_list = web_scraping.amazon_scraping(query)
+        flipkart_list = web_scraping.flipkart_scraping(query)
         json = {
             "amazon": amazon_list,
             "flipkart": flipkart_list
@@ -45,7 +44,7 @@ async def fetch_data(user_input : UserInput):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/add-product/")
+@app.post("/add-product/") # adds the products in the db
 async def add_tracked_product(tracked_product : TrackedProduct):
     try:
         await add_product(tracked_product)
@@ -54,7 +53,7 @@ async def add_tracked_product(tracked_product : TrackedProduct):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-@app.delete("/delete-product/{docId}/")
+@app.delete("/delete-product/{docId}/") # deletes the product in db
 async def delete_tracked_product(docId : str):
     try:
         await delete_product(docId)
@@ -63,7 +62,7 @@ async def delete_tracked_product(docId : str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-@app.get("/is-product-tracked/{docId}/")
+@app.get("/is-product-tracked/{docId}/") # returns whether the product is in db or not
 async def check_product_tracked(docId : str):
     try:
         result = await is_product_tracked(docId)
@@ -72,7 +71,7 @@ async def check_product_tracked(docId : str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
         
-@app.post("/add-product-by-link/")
+@app.post("/add-product-by-link/") #this creates a new entry in db when user enter links it scrapes and then add the info
 async def add_product_by_link(link_product : LinkProduct):
     json = {}
     try:
@@ -97,7 +96,7 @@ async def add_product_by_link(link_product : LinkProduct):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/fetch-latest-price-from-app/")
+@app.patch("/fetch-latest-price-from-app/") # this fetches latest price by scraping and updates the db or creates new entry
 async def fetch_latest_price_from_app(userId : UserId):
     json = {}
     try:
