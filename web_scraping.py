@@ -4,7 +4,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from amazoncaptcha import AmazonCaptcha
 from models.TrackedProductModel import TrackedProduct
-from firebase_methods import add_product, is_product_tracked
+import tracked_products_methods
 import time
 import datetime
 
@@ -211,7 +211,7 @@ async def fetch_amazon_product(productUrl : str, currentUser : str) -> str:
     
     docId = f"{title} Amazon".replace(" ", "_").replace("/", "`")
 
-    if await is_product_tracked(docId):
+    if await tracked_products_methods.is_product_tracked(docId):
         return "Exists"
 
     product = TrackedProduct(
@@ -226,7 +226,7 @@ async def fetch_amazon_product(productUrl : str, currentUser : str) -> str:
         site = "Amazon",
     )
 
-    await add_product(product=product)
+    await tracked_products_methods.add_product(product=product)
     return "Added"
 
 async def fetch_flipkart_product(productUrl : str, currentUser : str) -> str:
@@ -252,7 +252,7 @@ async def fetch_flipkart_product(productUrl : str, currentUser : str) -> str:
 
     docId = f"{title} Flipkart".replace(" ", "_").replace("/", "`")
 
-    if await is_product_tracked(docId):
+    if await tracked_products_methods.is_product_tracked(docId):
         return "Exists"
 
     product = TrackedProduct(
@@ -267,6 +267,50 @@ async def fetch_flipkart_product(productUrl : str, currentUser : str) -> str:
         site = "Flipkart",
     )
 
-    await add_product(product=product)
+    await tracked_products_methods.add_product(product=product)
     return "Added"
 
+async def fetch_latest_price(url : str):
+    current_price = ""
+    if url.startswith("https://www.amazon.in/"):
+        try:
+            captcha_link = driver.find_element(By.TAG_NAME, "img").get_attribute("src")
+            amazon_captcha_solver(src=captcha_link, driver=driver)
+        except:
+            pass
+
+        prices = driver.find_elements(By.CSS_SELECTOR, "span.a-price-whole")
+        for price in prices:
+            if price.text != "":
+                current_price = price.text
+                break
+        
+    elif url.startswith("https://www.flipkart.com/"):
+        try:
+            current_price = driver.find_element(By.CSS_SELECTOR, "div.Nx9bqj.CxhGGd").text.removeprefix("₹")
+        except:
+            time.sleep(5)
+            button = driver.find_element(By.CSS_SELECTOR, "button.btn")
+            button.click()
+            driver.refresh()
+            current_price = driver.find_element(By.CSS_SELECTOR, "div.Nx9bqj.CxhGGd").text.removeprefix("₹")
+
+        current_price = driver.find_element(By.CSS_SELECTOR, "div.Nx9bqj.CxhGGd").text.removeprefix("₹")
+    
+    return current_price
+
+
+async def fetch_latest_price_from_app(userId : str):
+
+    docs = await tracked_products_methods.fetch_all_documents(userId)
+    for doc in docs:
+        product = doc.to_dict()
+        url : str = product["productUrl"]
+        current_price = ""
+        driver.get(url)
+
+        current_price = await fetch_latest_price(url)
+
+        await tracked_products_methods.update_price(doc.id, current_price)
+
+    return docs

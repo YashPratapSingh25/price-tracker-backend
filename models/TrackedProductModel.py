@@ -7,6 +7,7 @@ class TrackedProduct(BaseModel):
     currentPrice : str
     prevPrice : str
     dateAdded : str
+    lastUpdated : str
     productUrl : str
     currentUser : str
     site : str

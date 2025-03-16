@@ -4,8 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 import web_scraping # import amazon_scraping, flipkart_scraping, deals_scraping, fetch_amazon_product
 from models.UserInputModel import UserInput
 from models.TrackedProductModel import TrackedProduct
+from models.UserIdModel import UserId
 from models.LinkProductModel import LinkProduct
-from firebase_methods import add_product, delete_product, is_product_tracked
+from tracked_products_methods import add_product, delete_product, is_product_tracked
 
 app = FastAPI()
 
@@ -93,5 +94,15 @@ async def add_product_by_link(link_product : LinkProduct):
                 return json
         else:
             json = {"result": "Provide supported link"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/fetch-latest-price-from-app/")
+async def fetch_latest_price_from_app(userId : UserId):
+    json = {}
+    try:
+        await web_scraping.fetch_latest_price_from_app(userId.userId)
+        json = {"result" : "Price updated successfully"}
+        return json
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
