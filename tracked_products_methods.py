@@ -17,8 +17,8 @@ def to_firestore_map(product : TrackedProduct):
       "title" : product.title,
       "currentPrice" : product.currentPrice,
       "prevPrice" : product.prevPrice,
-      "dateAdded" : datetime.datetime.fromisoformat(product.dateAdded),
-      "lastUpdated" : datetime.datetime.fromisoformat(product.dateAdded),
+      "dateAdded" : firestore_async.SERVER_TIMESTAMP,
+      "lastUpdated" : firestore_async.SERVER_TIMESTAMP,
       "productUrl" : product.productUrl,
       "currentUser" : product.currentUser,
       "site" : product.site
@@ -35,6 +35,7 @@ async def add_product(product : TrackedProduct):
 
 async def delete_product(docId : str):
     await trackedProducts.document(docId).delete()
+    await delete_subcollection(docId)
 
 async def is_product_tracked(docId : str) -> bool:
     docRef = await trackedProducts.document(docId).get()
@@ -51,12 +52,8 @@ async def fetch_all_documents(userId : str):
     return product_docs
 
 async def update_price(docId : str, newPrice : str):
-    doc = await trackedProducts.document(docId).get()
-    doc_dict = doc.to_dict()
-    prevPrice = doc_dict.get("currentPrice")
     await trackedProducts.document(docId).update({
         "currentPrice": newPrice,
-        "prevPrice": prevPrice,
         "lastUpdated": firestore_async.SERVER_TIMESTAMP
     })
     await add_price_in_subcollection(docId=docId, current_price=newPrice)
@@ -67,3 +64,32 @@ async def add_price_in_subcollection(docId : str, current_price : str):
         "price" : current_price,
         "timestamp" : firestore_async.SERVER_TIMESTAMP
     })
+
+async def delete_subcollection(docId : str):
+    docs = trackedProducts.document(docId).collection("priceHistory").stream()
+
+    async for doc in docs:
+        await doc.reference.delete()
+
+async def fetch_price_history(userId : str):
+    docs = trackedProducts.where("currentUser", "==", userId).stream()
+
+    price_history = []
+    doc_history = []
+
+    async for doc in docs:
+        histories = doc.reference.collection("priceHistory").stream()
+        async for history in histories:
+            dict = history.to_dict()
+            date = history.id
+            price = dict["price"]
+            map = {
+                "date": date,
+                "price": price
+            }
+            
+            doc_history.append(map)
+        price_history.append({"product" : doc.id, "history" : doc_history})
+        doc_history = []
+
+    return price_history

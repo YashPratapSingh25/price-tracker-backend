@@ -1,11 +1,12 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 import web_scraping
 from models.TrackedProductModel import TrackedProduct
 from models.UserIdModel import UserId
 from models.LinkProductModel import LinkProduct
-from tracked_products_methods import add_product, delete_product, is_product_tracked
+from tracked_products_methods import add_product, delete_product, is_product_tracked, fetch_price_history
 
 app = FastAPI()
 
@@ -89,6 +90,7 @@ async def add_product_by_link(link_product : LinkProduct):
                 json = {"result": "Product already exists"}
                 return json
             elif result == "Added":
+                print("results")
                 json = {"result": "Product added successfully"}
                 return json
         else:
@@ -103,5 +105,14 @@ async def fetch_latest_price_from_app(userId : UserId):
         await web_scraping.fetch_latest_price_from_app(userId.userId)
         json = {"result" : "Price updated successfully"}
         return json
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+@app.get("/fetch-price-history/{userId}/")
+async def fetch_price_history_of_product(userId):
+    try:
+        price_history = await fetch_price_history(userId)
+        return JSONResponse(content=price_history)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
