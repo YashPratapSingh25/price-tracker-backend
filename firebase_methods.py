@@ -1,5 +1,5 @@
 import firebase_admin
-from firebase_admin import credentials
+from firebase_admin import credentials, messaging
 from firebase_admin import firestore_async
 from models.TrackedProductModel import TrackedProduct
 from google.cloud.firestore_v1.base_query import FieldFilter
@@ -52,10 +52,17 @@ async def fetch_all_documents(userId : str):
     return product_docs
 
 async def update_price(docId : str, newPrice : str):
+    doc = await trackedProducts.document(docId).get()
+    dict = doc.to_dict()
+    title = dict.get("title")
+    currentPrice : str = dict.get("currentPrice")
     await trackedProducts.document(docId).update({
         "currentPrice": newPrice,
         "lastUpdated": firestore_async.SERVER_TIMESTAMP
     })
+    
+    if float(currentPrice.replace(",", "")) > float(newPrice.replace(",", "")):
+        send_fcm_notification(title, newPrice, currentPrice)
     await add_price_in_subcollection(docId=docId, current_price=newPrice)
 
 async def add_price_in_subcollection(docId : str, current_price : str):
@@ -93,3 +100,27 @@ async def fetch_price_history(userId : str):
         doc_history = []
 
     return price_history
+
+
+def send_fcm_notification(title, newPrice, currentPrice):
+
+    token = ""
+    with open("token.txt", "r") as token_file:
+        token = token_file.read()
+    
+    if not token:
+        return
+
+    message = messaging.Message(
+        token=token,
+        notification=messaging.Notification(
+            title=f"Price Drop Alert for {title}! 🚀",
+            body=f"Price dropped from {currentPrice} to {newPrice}"
+        )
+    )
+
+    try:
+        response = messaging.send(message)
+        print(f"Notification sent successfully: {response}")
+    except Exception as e:
+        print(f"Failed to send notification: {e}")

@@ -6,7 +6,8 @@ import web_scraping
 from models.TrackedProductModel import TrackedProduct
 from models.UserIdModel import UserId
 from models.LinkProductModel import LinkProduct
-from tracked_products_methods import add_product, delete_product, is_product_tracked, fetch_price_history
+from models.TokenModel import Token
+from firebase_methods import add_product, delete_product, is_product_tracked, fetch_price_history
 
 app = FastAPI()
 
@@ -116,3 +117,21 @@ async def fetch_price_history_of_product(userId):
         return JSONResponse(content=price_history)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+@app.post("/update-token/")
+async def update_token(token : Token):
+    try:
+        saved_token = ""
+        with open("token.txt", "r") as device_token:
+            saved_token = device_token.read()
+
+        if saved_token != token.token:
+            with open("token.txt", "w") as device_token:
+                device_token.write(token.token)
+
+            return {"message": "Token updated"}
+        else:
+            return {"message": "Token is same"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+        

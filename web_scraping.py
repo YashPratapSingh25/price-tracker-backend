@@ -5,7 +5,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from amazoncaptcha import AmazonCaptcha
 from models.TrackedProductModel import TrackedProduct
-import tracked_products_methods
+import firebase_methods
 import time
 import datetime
 
@@ -212,7 +212,7 @@ async def fetch_amazon_product(productUrl : str, currentUser : str) -> str:
     
     docId = f"{title} Amazon".replace(" ", "_").replace("/", "`")
 
-    if await tracked_products_methods.is_product_tracked(docId):
+    if await firebase_methods.is_product_tracked(docId):
         return "Exists"
 
     product = TrackedProduct(
@@ -228,7 +228,7 @@ async def fetch_amazon_product(productUrl : str, currentUser : str) -> str:
         site = "Amazon",
     )
 
-    await tracked_products_methods.add_product(product=product)
+    await firebase_methods.add_product(product=product)
     return "Added"
 
 async def fetch_flipkart_product(productUrl : str, currentUser : str) -> str:
@@ -254,7 +254,7 @@ async def fetch_flipkart_product(productUrl : str, currentUser : str) -> str:
 
     docId = f"{title} Flipkart".replace(" ", "_").replace("/", "`")
 
-    if await tracked_products_methods.is_product_tracked(docId):
+    if await firebase_methods.is_product_tracked(docId):
         return "Exists"
 
     product = TrackedProduct(
@@ -270,7 +270,7 @@ async def fetch_flipkart_product(productUrl : str, currentUser : str) -> str:
         site = "Flipkart",
     )
 
-    await tracked_products_methods.add_product(product=product)
+    await firebase_methods.add_product(product=product)
     return "Added"
 
 async def fetch_latest_price(url : str):
@@ -305,7 +305,7 @@ async def fetch_latest_price(url : str):
 
 async def fetch_latest_price_from_app(userId : str):
 
-    docs = await tracked_products_methods.fetch_all_documents(userId)
+    docs = await firebase_methods.fetch_all_documents(userId)
     for doc in docs:
         product = doc.to_dict()
         url : str = product["productUrl"]
@@ -313,6 +313,6 @@ async def fetch_latest_price_from_app(userId : str):
 
         current_price = await fetch_latest_price(url)
 
-        await tracked_products_methods.update_price(doc.id, current_price)
+        await firebase_methods.update_price(doc.id, current_price)
 
     return docs
